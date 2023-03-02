@@ -2,6 +2,8 @@ package stream
 
 import (
 	"context"
+	"os"
+
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad/api"
 )
@@ -27,7 +29,7 @@ type ClientConfig struct {
 
 func DefaultClientConfig() ClientConfig {
 	clientConf := ClientConfig{
-		Address:   "http://127.0.0.1:4646",
+		Address:   os.Getenv("NOMAD_ADDR"),
 		Region:    "",
 		SecretID:  "",
 		NameSpace: "",
@@ -37,23 +39,22 @@ func DefaultClientConfig() ClientConfig {
 	return clientConf
 }
 
-func NewClient() (*api.Client, error) {
+func NewClient(config *ClientConfig) (*api.Client, error) {
 	client, err := api.NewClient(&api.Config{
-		Address:   DefaultClientConfig().Address,
-		Region:    DefaultClientConfig().Region,
-		SecretID:  DefaultClientConfig().SecretID,
-		Namespace: DefaultClientConfig().NameSpace,
-		TLSConfig: DefaultClientConfig().TLSConfig,
+		Address:   config.Address,
+		Region:    config.Region,
+		SecretID:  config.SecretID,
+		Namespace: config.NameSpace,
+		TLSConfig: config.TLSConfig,
 	})
-
 	if err != nil {
 		return nil, err
 	}
 	return client, nil
 }
 
-func NewStream() *Stream {
-	client, _ := NewClient()
+func NewStream(config *ClientConfig) *Stream {
+	client, _ := NewClient(config)
 	return &Stream{
 		nomad: client,
 		L:     hclog.Default(),
@@ -64,9 +65,7 @@ func (s *Stream) Subscribe(ctx context.Context) (<-chan *api.Events, error) {
 	events := s.nomad.EventStream()
 
 	topics := map[api.Topic][]string{
-		api.Topic("Deployment"): {"*"},
-		api.Topic("Job"):        {"*"},
-		api.Topic("Service"):    {"*"},
+		api.Topic("Allocation"): {"*"},
 	}
 
 	eventCh, err := events.Stream(ctx, topics, 0, &api.QueryOptions{})
