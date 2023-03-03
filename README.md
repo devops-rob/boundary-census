@@ -27,6 +27,15 @@ config "controller" {
 }
 ```
 
+## Mocks
+
+To re-generate the mock used for testing run the following command:
+
+```shell
+make generate_mocks
+```
+
+
 ## Setup Local Nomad, Boundary, Consul
 
 To setup and configure a local Nomad, Boundary, and Consul server use the following command:

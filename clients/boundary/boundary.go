@@ -3,6 +3,7 @@ package boundary
 import (
 	"context"
 	"fmt"
+
 	"github.com/hashicorp/boundary/api"
 	"github.com/hashicorp/boundary/api/authmethods"
 	"github.com/hashicorp/boundary/api/hostcatalogs"
@@ -12,13 +13,29 @@ import (
 	//"github.com/hashicorp/nomad/helper/authmethods"
 )
 
-type Client struct {
+//go:generate mockery --name Client
+type Client interface {
+	// CreateTarget creates a new Boundary target with the given options
+	CreateTarget(name string, port uint32, scopeId string) (*targets.Target, error)
+
+	// FindProjectIDByName attempts to find a project in an organization
+	// project can be referenced by either the name or the id of the project
+	// if a project is found the id and a nil error is returned
+	// if a project is not found a ProjectNotFound error is returned
+	FindProjectIDByName(org, name string) (string, error)
+}
+
+// ProjectNotFoundError is returned by FindProjectIDByName when the given project
+// is not found in the organization
+var ProjectNotFoundError = fmt.Errorf("project not found")
+
+type ClientImpl struct {
 	*api.Client
 	organization string
 	scope        string
 }
 
-func New(address string, organization string, scope string, authmethod string, credentials map[string]interface{}) (*Client, error) {
+func New(address string, organization string, scope string, authmethod string, credentials map[string]interface{}) (Client, error) {
 	config := &api.Config{
 		Addr: address,
 	}
@@ -35,16 +52,19 @@ func New(address string, organization string, scope string, authmethod string, c
 
 	client.SetToken(fmt.Sprint(authenticationResult.Attributes["token"]))
 
-	return &Client{client, organization, scope}, nil
+	return &ClientImpl{client, organization, scope}, nil
 }
 
-func (c *Client) GetHostCatalogByName(name string, scopeId string) (*hostcatalogs.HostCatalog, error) {
+func (c *ClientImpl) FindProjectIDByName(org, name string) (string, error) {
+	return "", nil
+}
+
+func (c *ClientImpl) GetHostCatalogByName(name string, scopeId string) (*hostcatalogs.HostCatalog, error) {
 	var opts []hostcatalogs.Option
 
 	client := hostcatalogs.NewClient(c.Client)
 
 	result, err := client.List(context.Background(), scopeId, opts...)
-
 	if err != nil {
 		return nil, err
 	}
@@ -58,7 +78,7 @@ func (c *Client) GetHostCatalogByName(name string, scopeId string) (*hostcatalog
 	return nil, fmt.Errorf("host catalog not found")
 }
 
-func (c *Client) CreateHostCatalog(name string, scopeId string) (*hostcatalogs.HostCatalog, error) {
+func (c *ClientImpl) CreateHostCatalog(name string, scopeId string) (*hostcatalogs.HostCatalog, error) {
 	var opts []hostcatalogs.Option
 
 	opts = append(opts, hostcatalogs.WithName(name))
@@ -73,7 +93,7 @@ func (c *Client) CreateHostCatalog(name string, scopeId string) (*hostcatalogs.H
 	return result.Item, nil
 }
 
-func (c *Client) DeleteHostCatalog(id string, scopeId string) error {
+func (c *ClientImpl) DeleteHostCatalog(id string, scopeId string) error {
 	var opts []hostcatalogs.Option
 
 	client := hostcatalogs.NewClient(c.Client)
@@ -86,13 +106,12 @@ func (c *Client) DeleteHostCatalog(id string, scopeId string) error {
 	return nil
 }
 
-func (c *Client) GetHostsetByName(name string, hostCatalogId string) (*hostsets.HostSet, error) {
+func (c *ClientImpl) GetHostsetByName(name string, hostCatalogId string) (*hostsets.HostSet, error) {
 	var opts []hostsets.Option
 
 	client := hostsets.NewClient(c.Client)
 
 	result, err := client.List(context.Background(), hostCatalogId, opts...)
-
 	if err != nil {
 		return nil, err
 	}
@@ -106,7 +125,7 @@ func (c *Client) GetHostsetByName(name string, hostCatalogId string) (*hostsets.
 	return nil, fmt.Errorf("host set not found")
 }
 
-func (c *Client) CreateHostset(name string, hostCatalogId string) (*hostsets.HostSet, error) {
+func (c *ClientImpl) CreateHostset(name string, hostCatalogId string) (*hostsets.HostSet, error) {
 	var opts []hostsets.Option
 
 	opts = append(opts, hostsets.WithName(name))
@@ -121,7 +140,7 @@ func (c *Client) CreateHostset(name string, hostCatalogId string) (*hostsets.Hos
 	return result.Item, nil
 }
 
-func (c *Client) DeleteHostset(hostSetId string) error {
+func (c *ClientImpl) DeleteHostset(hostSetId string) error {
 	var opts []hostsets.Option
 
 	client := hostsets.NewClient(c.Client)
@@ -134,13 +153,12 @@ func (c *Client) DeleteHostset(hostSetId string) error {
 	return nil
 }
 
-func (c *Client) GetHostByName(name string, hostCatalogId string) (*hosts.Host, error) {
+func (c *ClientImpl) GetHostByName(name string, hostCatalogId string) (*hosts.Host, error) {
 	var opts []hosts.Option
 
 	client := hosts.NewClient(c.Client)
 
 	result, err := client.List(context.Background(), hostCatalogId, opts...)
-
 	if err != nil {
 		return nil, err
 	}
@@ -154,7 +172,7 @@ func (c *Client) GetHostByName(name string, hostCatalogId string) (*hosts.Host, 
 	return nil, fmt.Errorf("host not found")
 }
 
-func (c *Client) CreateHost(name string, address string, hostCatalogId string) (*hosts.Host, error) {
+func (c *ClientImpl) CreateHost(name string, address string, hostCatalogId string) (*hosts.Host, error) {
 	var opts []hosts.Option
 
 	opts = append(opts, hosts.WithName(name))
@@ -170,7 +188,7 @@ func (c *Client) CreateHost(name string, address string, hostCatalogId string) (
 	return result.Item, nil
 }
 
-func (c *Client) UpdateHost(name string, address string, id string, version uint32) (*hosts.Host, error) {
+func (c *ClientImpl) UpdateHost(name string, address string, id string, version uint32) (*hosts.Host, error) {
 	var opts []hosts.Option
 
 	opts = append(opts, hosts.WithName(name))
@@ -186,7 +204,7 @@ func (c *Client) UpdateHost(name string, address string, id string, version uint
 	return result.Item, nil
 }
 
-func (c *Client) DeleteHost(id string) error {
+func (c *ClientImpl) DeleteHost(id string) error {
 	var opts []hosts.Option
 
 	client := hosts.NewClient(c.Client)
@@ -199,13 +217,12 @@ func (c *Client) DeleteHost(id string) error {
 	return nil
 }
 
-func (c *Client) GetTargetByName(name string, scopeId string) (*targets.Target, error) {
+func (c *ClientImpl) GetTargetByName(name string, scopeId string) (*targets.Target, error) {
 	var opts []targets.Option
 
 	client := targets.NewClient(c.Client)
 
 	result, err := client.List(context.Background(), scopeId, opts...)
-
 	if err != nil {
 		return nil, err
 	}
@@ -219,7 +236,11 @@ func (c *Client) GetTargetByName(name string, scopeId string) (*targets.Target, 
 	return nil, fmt.Errorf("target not found")
 }
 
-func (c *Client) CreateTarget(name string, port uint32, scopeId string, hostId string) (*targets.Target, error) {
+func (c *ClientImpl) CreateTarget(name string, port uint32, scopeId string) (*targets.Target, error) {
+	return nil, nil
+}
+
+func (c *ClientImpl) CreateTargetWithHost(name string, port uint32, scopeId string, hostId string) (*targets.Target, error) {
 	var opts []targets.Option
 	opts = append(opts, targets.WithTcpTargetDefaultPort(port))
 	opts = append(opts, targets.WithName(name))
@@ -228,16 +249,14 @@ func (c *Client) CreateTarget(name string, port uint32, scopeId string, hostId s
 	client := targets.NewClient(c.Client)
 
 	result, err := client.Create(context.Background(), "tcp", scopeId, opts...) // check resource type
-
 	if err != nil {
 		return nil, err
 	}
 
 	return result.Item, nil
-
 }
 
-func (c *Client) UpdateTarget(name string, port uint32, id string, hostId string, version uint32) (*targets.Target, error) {
+func (c *ClientImpl) UpdateTarget(name string, port uint32, id string, hostId string, version uint32) (*targets.Target, error) {
 	var opts []targets.Option
 	opts = append(opts, targets.WithTcpTargetDefaultPort(port))
 	opts = append(opts, targets.WithName(name))
@@ -246,26 +265,22 @@ func (c *Client) UpdateTarget(name string, port uint32, id string, hostId string
 	client := targets.NewClient(c.Client)
 
 	result, err := client.Update(context.Background(), id, version, opts...) // check resource type
-
 	if err != nil {
 		return nil, err
 	}
 
 	return result.Item, nil
-
 }
 
-func (c *Client) DeleteTarget(id string) error {
+func (c *ClientImpl) DeleteTarget(id string) error {
 	var opts []targets.Option
 
 	client := targets.NewClient(c.Client)
 
 	_, err := client.Delete(context.Background(), id, opts...)
-
 	if err != nil {
 		return err
 	}
 
 	return nil
-
 }

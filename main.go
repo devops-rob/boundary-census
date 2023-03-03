@@ -4,11 +4,11 @@ import (
 	"context"
 	"flag"
 	"fmt"
-
-	//"github.com/hashicorp/nomad/api"
-	"boundary-census/config"
-	nc "boundary-census/nomad"
 	"os"
+
+	"github.com/devops-rob/boundary-census/config"
+
+	nc "github.com/devops-rob/boundary-census/clients/nomad"
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/kr/pretty"
