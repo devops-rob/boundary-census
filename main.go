@@ -8,6 +8,7 @@ import (
 
 	"github.com/devops-rob/boundary-census/config"
 
+	bc "github.com/devops-rob/boundary-census/clients/boundary"
 	nc "github.com/devops-rob/boundary-census/clients/nomad"
 
 	"github.com/hashicorp/go-hclog"
@@ -35,19 +36,34 @@ func main() {
 		os.Exit(1)
 	}
 
-	logger.Info("Starting event stream", "addr", cfg.Nomad.Address)
-
+	// Create a new Stream object
 	streamConfig := nc.DefaultClientConfig()
 	streamConfig.Address = cfg.Nomad.Address
-
-	// Create a new Stream object
 	s := nc.NewStream(&streamConfig)
+
+	logger.Info("Creating Boundary client", "addr", cfg.Boundary.Address, "org", cfg.Boundary.OrgID, "auth_id", cfg.Boundary.AuthMethodID, "username", cfg.Boundary.Username)
+
+	_, err = bc.New(
+		cfg.Boundary.Address,
+		cfg.Boundary.OrgID,
+		cfg.Boundary.DefaultProject,
+		cfg.Boundary.AuthMethodID,
+		map[string]interface{}{
+			"login_name": cfg.Boundary.Username,
+			"password":   cfg.Boundary.Password,
+		},
+	)
+	if err != nil {
+		logger.Error("Unable to create client", "error", err)
+		os.Exit(1)
+	}
 
 	// Create a context to cancel the event subscription when the program exits
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	// Subscribe to deployment events
+	logger.Info("Starting event stream", "addr", cfg.Nomad.Address)
 	eventStream, err := s.Subscribe(ctx)
 	if err != nil {
 		s.L.Error("error subscribing to events", "error", err)
@@ -66,6 +82,10 @@ func main() {
 				if err != nil {
 					logger.Error("unable to fetch allocation", "error", err)
 				}
+
+				// create a service from the allocation
+				//si := handlers.ServiceInstance{
+				//}
 
 				pretty.Println(alloc)
 			}

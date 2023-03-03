@@ -8,8 +8,8 @@ config "controller" {
     password = env("BOUNDARY_PASSWORD")
     address = env("BOUNDARY_ADDR")
 
-    org_id = file("./shipyard/files/org_id")
-    auth_method_id = file("./shipyard/files/auth_method_id")
+    org_id = trim(file("./shipyard/files/org_id"))
+    auth_method_id = trim(file("./shipyard/files/auth_method_id"))
     default_project = "myproject"
     default_groups = ["developers"]
   }

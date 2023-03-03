@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/shipyard-run/hclconfig"
 	"github.com/shipyard-run/hclconfig/types"
@@ -39,6 +40,9 @@ type Boundary struct {
 func Parse(config string) (*Config, error) {
 	p := hclconfig.NewParser(hclconfig.DefaultOptions())
 	p.RegisterType("config", &Config{})
+	p.RegisterFunction("trim", func(s string) (string, error) {
+		return strings.TrimSpace(s), nil
+	})
 
 	c := hclconfig.NewConfig()
 	err := p.ParseFile(config, c)

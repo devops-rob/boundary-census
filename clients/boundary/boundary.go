@@ -39,15 +39,16 @@ func New(address string, organization string, scope string, authmethod string, c
 	config := &api.Config{
 		Addr: address,
 	}
+
 	client, err := api.NewClient(config)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to create client from config: %s", err)
 	}
 
 	amClient := authmethods.NewClient(client)
 	authenticationResult, err := amClient.Authenticate(context.Background(), authmethod, "login", credentials)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to authenticate client: %s", err)
 	}
 
 	client.SetToken(fmt.Sprint(authenticationResult.Attributes["token"]))
