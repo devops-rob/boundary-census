@@ -3,12 +3,14 @@ package boundary
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/hashicorp/boundary/api"
 	"github.com/hashicorp/boundary/api/authmethods"
 	"github.com/hashicorp/boundary/api/hostcatalogs"
 	"github.com/hashicorp/boundary/api/hosts"
 	"github.com/hashicorp/boundary/api/hostsets"
+	"github.com/hashicorp/boundary/api/scopes"
 	"github.com/hashicorp/boundary/api/targets"
 	//"github.com/hashicorp/nomad/helper/authmethods"
 )
@@ -23,11 +25,17 @@ type Client interface {
 	// if a project is found the id and a nil error is returned
 	// if a project is not found a ProjectNotFound error is returned
 	FindProjectIDByName(org, name string) (string, error)
+
+	// DeleteTargetsWithPrefix deletes all targets in the scope that have the given prefix
+	DeleteTargetsWithPrefix(prefix, scopeId string) error
 }
 
 // ProjectNotFoundError is returned by FindProjectIDByName when the given project
 // is not found in the organization
-var ProjectNotFoundError = fmt.Errorf("project not found")
+var (
+	ProjectNotFoundError = fmt.Errorf("project not found")
+	TargetNotFoundError  = fmt.Errorf("target not found")
+)
 
 type ClientImpl struct {
 	*api.Client
@@ -57,7 +65,27 @@ func New(address string, organization string, scope string, authmethod string, c
 }
 
 func (c *ClientImpl) FindProjectIDByName(org, name string) (string, error) {
-	return "", nil
+	var opts []scopes.Option
+	opts = append(opts, scopes.WithRecursive(true))
+
+	client := scopes.NewClient(c.Client)
+
+	result, err := client.List(context.Background(), org, opts...)
+	if err != nil {
+		return "", err
+	}
+
+	for _, scope := range result.Items {
+		if scope.Id == name && scope.Type == "project" {
+			return scope.Id, nil
+		}
+
+		if scope.Name == name && scope.Type == "project" {
+			return scope.Id, nil
+		}
+	}
+
+	return "", ProjectNotFoundError
 }
 
 func (c *ClientImpl) GetHostCatalogByName(name string, scopeId string) (*hostcatalogs.HostCatalog, error) {
@@ -234,18 +262,37 @@ func (c *ClientImpl) GetTargetByName(name string, scopeId string) (*targets.Targ
 		}
 	}
 
-	return nil, fmt.Errorf("target not found")
+	return nil, TargetNotFoundError
 }
 
 func (c *ClientImpl) CreateTarget(name string, address string, port uint32, scopeId string) (*targets.Target, error) {
+	// first check if the target exists
+	t, err := c.GetTargetByName(name, scopeId)
+	if err != nil && err != TargetNotFoundError {
+		return nil, err
+	}
+
+	client := targets.NewClient(c.Client)
+
 	var opts []targets.Option
 	opts = append(opts, targets.WithTcpTargetDefaultPort(port))
 	opts = append(opts, targets.WithAddress(address))
 	opts = append(opts, targets.WithName(name))
 
-	client := targets.NewClient(c.Client)
+	// create
+	if err == TargetNotFoundError {
+		result, err := client.Create(context.Background(), "tcp", scopeId, opts...) // check resource type
+		if err != nil {
+			return nil, err
+		}
 
-	result, err := client.Create(context.Background(), "tcp", scopeId, opts...) // check resource type
+		return result.Item, nil
+	}
+
+	opts = append(opts, targets.WithAutomaticVersioning(true))
+
+	// update
+	result, err := client.Update(context.Background(), t.Id, 0, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -283,6 +330,27 @@ func (c *ClientImpl) UpdateTarget(name string, port uint32, id string, hostId st
 	}
 
 	return result.Item, nil
+}
+
+func (c *ClientImpl) DeleteTargetsWithPrefix(prefix, scopeId string) error {
+	var opts []targets.Option
+	client := targets.NewClient(c.Client)
+
+	result, err := client.List(context.Background(), scopeId, opts...)
+	if err != nil {
+		return err
+	}
+
+	for _, target := range result.Items {
+		if strings.HasPrefix(target.Name, prefix) {
+			_, err := client.Delete(context.Background(), target.Id, opts...)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }
 
 func (c *ClientImpl) DeleteTarget(id string) error {

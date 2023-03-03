@@ -48,3 +48,20 @@ func (t *Target) Create(s *ServiceInstance, name, scope, project string) ([]stri
 
 	return []string{}, nil
 }
+
+// Delete targets prefixed with Name
+func (t *Target) DeleteWithPrefix(prefix, scope, project string) error {
+	// attempt to find the project
+	project_id, err := t.BoundaryClient.FindProjectIDByName(scope, project)
+	if err != nil {
+		t.Log.Error("unable to find project", "scope", scope, "project", project, "error", err)
+		return fmt.Errorf("unable to find project")
+	}
+
+	err = t.BoundaryClient.DeleteTargetsWithPrefix(prefix, project_id)
+	if err != nil {
+		return fmt.Errorf("unable to delete targets: %s", err)
+	}
+
+	return nil
+}

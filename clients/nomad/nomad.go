@@ -68,7 +68,7 @@ func (s *Stream) Subscribe(ctx context.Context) (<-chan *api.Events, error) {
 		api.Topic("Allocation"): {"*"},
 	}
 
-	eventCh, err := events.Stream(ctx, topics, 0, &api.QueryOptions{})
+	eventCh, err := events.Stream(ctx, topics, 9999999, &api.QueryOptions{})
 	if err != nil {
 		s.L.Error("error creating event stream client", "error", err)
 		return nil, err
