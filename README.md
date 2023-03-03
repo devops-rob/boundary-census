@@ -27,10 +27,30 @@ config "controller" {
 }
 ```
 
+## Setup Local Nomad, Boundary, Consul
+
+To setup and configure a local Nomad, Boundary, and Consul server use the following command:
+
+```shell
+shipyard run ./shipyard
+```
+
+You can determine the local addresses for the Boundary, Consul, and Nomad clusters by running:
+
+```
+shipyard output
+```
+
+These can also be set as environment variables with the following command:
+
+```
+eval $(shipyard env)
+```
+
 ## Running
 
 To run the server you can use the following command:
 
 ```shell
-go run main.go -config=./myconfig.hcl
+go run main.go -config=./example_config.hcl
 ```

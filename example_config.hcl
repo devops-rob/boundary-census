@@ -1,19 +1,16 @@
 config "controller" {
   nomad {
-    address = "http://localhost:4646"
-    token = "abc123" 
-    region = "myregion"
-    namespace = "mynamespace"
+    address = env("NOMAD_ADDR")
   }
 
   boundary {
-    username = "nic"
-    password = "password"
-    address = "http://myaddress.com"
+    username = env("BOUNDARY_USER")
+    password = env("BOUNDARY_PASSWORD")
+    address = env("BOUNDARY_ADDR")
 
-    org_id = "myorg"
-    auth_method_id = "123"
-    default_project = "hashicorp"
+    org_id = file("./shipyard/files/org_id")
+    auth_method_id = file("./shipyard/files/auth_method_id")
+    default_project = "myproject"
     default_groups = ["developers"]
   }
 }

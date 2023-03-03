@@ -35,6 +35,8 @@ func main() {
 		os.Exit(1)
 	}
 
+	logger.Info("Starting event stream", "addr", cfg.Nomad.Address)
+
 	streamConfig := nc.DefaultClientConfig()
 	streamConfig.Address = cfg.Nomad.Address
 
