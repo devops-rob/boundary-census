@@ -39,7 +39,7 @@ func (t *Target) Create(s *ServiceInstance, name, scope, project string) ([]stri
 	// create a target for every port
 	for _, p := range s.Ports {
 		targetName := fmt.Sprintf("%s_%d", name, p)
-		_, err = t.BoundaryClient.CreateTarget(targetName, p, project_id)
+		_, err = t.BoundaryClient.CreateTarget(targetName, s.Location, p, project_id)
 		if err != nil {
 			t.Log.Info("unable to create target", "scope", scope, "project", project, "error", err)
 			return nil, fmt.Errorf("unable to create target: %s", err)

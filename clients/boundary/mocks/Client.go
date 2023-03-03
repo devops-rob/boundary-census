@@ -12,25 +12,25 @@ type Client struct {
 	mock.Mock
 }
 
-// CreateTarget provides a mock function with given fields: name, port, scopeId
-func (_m *Client) CreateTarget(name string, port uint32, scopeId string) (*targets.Target, error) {
-	ret := _m.Called(name, port, scopeId)
+// CreateTarget provides a mock function with given fields: name, address, port, scopeId
+func (_m *Client) CreateTarget(name string, address string, port uint32, scopeId string) (*targets.Target, error) {
+	ret := _m.Called(name, address, port, scopeId)
 
 	var r0 *targets.Target
 	var r1 error
-	if rf, ok := ret.Get(0).(func(string, uint32, string) (*targets.Target, error)); ok {
-		return rf(name, port, scopeId)
+	if rf, ok := ret.Get(0).(func(string, string, uint32, string) (*targets.Target, error)); ok {
+		return rf(name, address, port, scopeId)
 	}
-	if rf, ok := ret.Get(0).(func(string, uint32, string) *targets.Target); ok {
-		r0 = rf(name, port, scopeId)
+	if rf, ok := ret.Get(0).(func(string, string, uint32, string) *targets.Target); ok {
+		r0 = rf(name, address, port, scopeId)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*targets.Target)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(string, uint32, string) error); ok {
-		r1 = rf(name, port, scopeId)
+	if rf, ok := ret.Get(1).(func(string, string, uint32, string) error); ok {
+		r1 = rf(name, address, port, scopeId)
 	} else {
 		r1 = ret.Error(1)
 	}

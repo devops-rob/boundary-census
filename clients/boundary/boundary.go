@@ -16,7 +16,7 @@ import (
 //go:generate mockery --name Client
 type Client interface {
 	// CreateTarget creates a new Boundary target with the given options
-	CreateTarget(name string, port uint32, scopeId string) (*targets.Target, error)
+	CreateTarget(name string, address string, port uint32, scopeId string) (*targets.Target, error)
 
 	// FindProjectIDByName attempts to find a project in an organization
 	// project can be referenced by either the name or the id of the project
@@ -236,8 +236,20 @@ func (c *ClientImpl) GetTargetByName(name string, scopeId string) (*targets.Targ
 	return nil, fmt.Errorf("target not found")
 }
 
-func (c *ClientImpl) CreateTarget(name string, port uint32, scopeId string) (*targets.Target, error) {
-	return nil, nil
+func (c *ClientImpl) CreateTarget(name string, address string, port uint32, scopeId string) (*targets.Target, error) {
+	var opts []targets.Option
+	opts = append(opts, targets.WithTcpTargetDefaultPort(port))
+	opts = append(opts, targets.WithAddress(address))
+	opts = append(opts, targets.WithName(name))
+
+	client := targets.NewClient(c.Client)
+
+	result, err := client.Create(context.Background(), "tcp", scopeId, opts...) // check resource type
+	if err != nil {
+		return nil, err
+	}
+
+	return result.Item, nil
 }
 
 func (c *ClientImpl) CreateTargetWithHost(name string, port uint32, scopeId string, hostId string) (*targets.Target, error) {
