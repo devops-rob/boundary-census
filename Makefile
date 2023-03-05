@@ -5,3 +5,5 @@ generate_mocks:
 run_dev:
 	go run main.go -config=./example_config.hcl
 
+build_app:
+	go run ./dagger/*.go
