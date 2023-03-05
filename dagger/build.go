@@ -20,6 +20,7 @@ type Builder struct {
 	oses         []string
 	arches       []string
 	uiComponents []glint.Component
+	hasError     bool
 }
 
 func NewBuilder(oses, arches []string) (*Builder, error) {
@@ -33,7 +34,11 @@ func NewBuilder(oses, arches []string) (*Builder, error) {
 		return nil, fmt.Errorf("Error connecting to Dagger Engine: %w", err)
 	}
 
-	return &Builder{client, ctx, cancel, d, oses, arches, nil}, nil
+	return &Builder{client, ctx, cancel, d, oses, arches, nil, false}, nil
+}
+
+func (b *Builder) HasError() bool {
+	return b.hasError
 }
 
 // Logs the start of a new build section
@@ -80,23 +85,31 @@ func (b *Builder) LogSubSection(message string) func(message string) {
 }
 
 func (b *Builder) LogError(message string, err error) {
+	b.hasError = true
+
 	// cancel the context
 	b.ctxCancel()
 
+	// clear the existing renderer
 	b.document.Close()
 
+	// create a new renderer
 	b.document = glint.New()
+
+	// output the text
 	b.document.Set(glint.Layout(
-		glint.Layout(
-			glint.Layout(glint.Text("Error")).MarginLeft(1),
-			glint.Layout(glint.Text(message)).MarginLeft(1),
-		).Row(),
+		glint.Style(
+			glint.Layout(
+				glint.Layout(glint.Text("Error")).MarginLeft(1),
+				glint.Layout(glint.Text(message)).MarginLeft(1),
+			).Row(), glint.Color("red")),
 		glint.Layout(
 			glint.Text(err.Error()),
 		).Row().MarginLeft(4),
 	))
 
-	b.document.Render(context.Background())
+	go b.document.Render(context.Background())
+	b.document.Close()
 }
 
 func (b *Builder) WithArchitectures(work func(os, arch string) error) {

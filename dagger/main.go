@@ -29,12 +29,42 @@ func main() {
 		os.Exit(1)
 	}
 
+	test(builder, src)
 	build(builder, src)
 	createDockerContainers(builder, src)
+
+	if builder.HasError() {
+		os.Exit(1)
+	}
+}
+
+func test(builder *Builder, src *dagger.Directory) {
+	if builder.ctx.Err() != nil {
+		return
+	}
+
+	done := builder.LogStartSection("Running unit tests")
+
+	_, err := builder.DaggerClient.Container().
+		From("golang:latest").
+		WithMountedDirectory("/src", src).
+		WithWorkdir("/src").
+		WithExec([]string{"go", "test", "-v", "./..."}).
+		ExitCode(builder.ctx)
+
+	if err != nil {
+		builder.LogError("unable to test application", err)
+	}
+
+	defer done()
 }
 
 // build the application for multiple architectures
 func build(builder *Builder, src *dagger.Directory) {
+	if builder.ctx.Err() != nil {
+		return
+	}
+
 	done := builder.LogStartSection("Building application for all architectures")
 	defer done()
 
@@ -65,6 +95,10 @@ func build(builder *Builder, src *dagger.Directory) {
 
 // create a Docker container for the built architectures
 func createDockerContainers(builder *Builder, src *dagger.Directory) {
+	if builder.ctx.Err() != nil {
+		return
+	}
+
 	done := builder.LogStartSection("Building Docker containers for all architectures")
 	defer done()
 
