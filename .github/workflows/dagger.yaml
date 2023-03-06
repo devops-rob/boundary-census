@@ -24,7 +24,7 @@ jobs:
         go-version: 1.19
 
     - name: Run Dagger Build Pipeline
-      run: make build_app
+      run: go run ./dagger/*.go
       #env:
       #  DIGITALOCEAN_TOKEN: ${{ secrets.DIGITALOCEAN_TOKEN }}
       #  TFE_TOKEN: ${{ secrets.TFE_TOKEN }}
