@@ -1,15 +1,23 @@
 package main
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
 	"os"
+	"os/exec"
 	"path"
+	"regexp"
+	"runtime"
 
 	"dagger.io/dagger"
 )
 
 var hasTTY = flag.Bool("tty", false, "does the output terminal have tty")
+var publishImage = flag.Bool("publish-image", false, "should the images be published")
+
+// var dockerRegistry = flag.String("docker-registry", "devops-rob/census", "registry for docker images")
+var dockerRegistry = flag.String("docker-registry", "nicholasjackson/census", "registry for docker images")
 
 // Dagger build pipeline
 func main() {
@@ -89,6 +97,7 @@ func build(builder *Builder, src *dagger.Directory) {
 	// build for all architectures
 	builder.WithArchitectures(func(goos, goarch string) error {
 		p := path.Join("build/", goos, goarch)
+
 		build := golang.WithEnvVariable("GOOS", goos).
 			WithEnvVariable("GOARCH", goarch).
 			WithExec([]string{"go", "build", "-o", path.Join(p, "census")})
@@ -100,7 +109,7 @@ func build(builder *Builder, src *dagger.Directory) {
 			builder.LogError("failed to build", err)
 		}
 
-		done(fmt.Sprintf("%s %s complete: ./build/%s/%s", goos, goarch, goos, goarch))
+		done(fmt.Sprintf("build complete output: ./build/%s/%s", goos, goarch))
 
 		return nil
 	})
@@ -112,22 +121,126 @@ func createDockerContainers(builder *Builder, src *dagger.Directory) {
 		return
 	}
 
+	containers := []*dagger.Container{}
+
 	done := builder.LogStartSection("Building Docker containers for all architectures")
 	defer done()
 
-	alpine := builder.DaggerClient.Container().From("golang:latest")
-
 	builder.WithArchitectures(func(goos, goarch string) error {
+		if goos != "linux" {
+			return nil
+		}
+
 		done := builder.LogSubSection(fmt.Sprintf("building %s %s", goos, goarch))
-		done(fmt.Sprintf("%s %s done", goos, goarch))
+
+		platform := dagger.Platform(fmt.Sprintf("%s/%s", goos, goarch))
 
 		dir := builder.DaggerClient.Host().Directory(path.Join("./build", goos, goarch))
-		alpine.WithMountedDirectory("/tmp", dir).
-			Exec(dagger.ContainerExecOpts{
-				Args: []string{"cp", "/tmp/census", "/bin/census"},
-			}).
-			WithEntrypoint([]string{"/bin/census"}).ExitCode(builder.ctx)
+
+		build := builder.DaggerClient.
+			Container(dagger.ContainerOpts{Platform: platform}).
+			From("alpine:latest").
+			WithMountedDirectory("/tmp", dir).
+			WithExec([]string{"cp", "/tmp/census", "/bin/census"}, dagger.ContainerWithExecOpts{}).
+			WithEntrypoint([]string{"/bin/census"})
+
+		containers = append(containers, build)
+
+		// export a local docker container for the current architecture
+		if goarch == runtime.GOARCH {
+			err := exportLocalImage(builder, build, platform)
+			if err != nil {
+				builder.LogError("error exporting image", err)
+			}
+		}
+
+		sha, _ := builder.GitSHA()
+		if *publishImage {
+			_, err := builder.DaggerClient.Container().
+				Publish(
+					builder.ctx,
+					fmt.Sprintf("%s:%s", *dockerRegistry, sha),
+					dagger.ContainerPublishOpts{PlatformVariants: containers},
+				)
+
+			if err != nil {
+				builder.LogError("error publishing image", err)
+			}
+		}
+
+		done(fmt.Sprintf("published container %s:%s for architecture %s/%s", *dockerRegistry, sha, goos, goarch))
 
 		return nil
 	})
+}
+
+func exportLocalImage(builder *Builder, container *dagger.Container, platform dagger.Platform) error {
+	done := builder.LogSubSection(fmt.Sprintf("exporting %s", platform))
+
+	outputDirectory := path.Join(os.TempDir(), "build_output")
+	os.MkdirAll(outputDirectory, os.ModePerm)
+
+	imagePath := path.Join(outputDirectory, "localexport.tar")
+	//defer os.RemoveAll(outputDirectory)
+
+	// export the image to the local path
+	_, err := builder.DaggerClient.
+		Container(dagger.ContainerOpts{Platform: platform}).
+		Export(
+			builder.ctx,
+			imagePath,
+			dagger.ContainerExportOpts{PlatformVariants: []*dagger.Container{container}},
+		)
+
+	if err != nil {
+		return err
+	}
+
+	// run docker import to import to the local system
+	cmd := exec.Command(
+		"docker",
+		"load",
+		"-i",
+		imagePath,
+	)
+
+	out := &bytes.Buffer{}
+	cmd.Stdout = out
+	cmd.Stderr = out
+
+	err = cmd.Run()
+	if err != nil {
+		return err
+	}
+
+	// get the sha from the output
+	r, err := regexp.Compile(`sha256:(.*)`)
+	if err != nil {
+		return err
+	}
+
+	res := r.FindStringSubmatch(out.String())
+	if len(res) != 2 {
+		return fmt.Errorf("expected sha from docker load output, got: %s", out.String())
+	}
+
+	sha := res[1]
+	cmd = exec.Command(
+		"docker",
+		"tag",
+		sha,
+		fmt.Sprintf("%s:local", *dockerRegistry),
+	)
+
+	out = &bytes.Buffer{}
+	cmd.Stdout = out
+	cmd.Stderr = out
+
+	err = cmd.Run()
+	if err != nil {
+		return err
+	}
+
+	done(fmt.Sprintf("export container complete for architecture %s", platform))
+	return nil
 }

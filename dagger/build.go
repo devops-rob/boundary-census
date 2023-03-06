@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"dagger.io/dagger"
+	"github.com/go-git/go-git/v5"
 	"github.com/mitchellh/go-glint"
 	gc "github.com/mitchellh/go-glint/components"
 )
@@ -31,9 +32,10 @@ func NewBuilder(oses, arches []string, withTTY bool) (*Builder, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
 
 	client, err := dagger.Connect(ctx, dagger.WithLogOutput(ioutil.Discard))
+	//client, err := dagger.Connect(ctx, dagger.WithLogOutput(os.Stdout))
 	if err != nil {
 		cancel()
-		return nil, fmt.Errorf("Error connecting to Dagger Engine: %w", err)
+		return nil, fmt.Errorf("Error connecting to Dagger engine: %w", err)
 	}
 
 	return &Builder{client, ctx, cancel, nil, nil, oses, arches, nil, false, nil, withTTY, nil}, nil
@@ -218,4 +220,20 @@ func (b *Builder) WithArchitectures(work func(os, arch string) error) {
 	}
 
 	wg.Wait()
+}
+
+func (b *Builder) GitSHA() (string, error) {
+	r, err := git.PlainOpen("./")
+
+	if err != nil {
+		return "", err
+	}
+
+	hash, err := r.Head()
+	if err != nil {
+		return "", err
+	}
+
+	// export the short hash
+	return hash.Hash().String()[:8], nil
 }
