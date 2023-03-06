@@ -56,7 +56,7 @@ exec_remote "boundary_db_init" {
   image {
       name = "hashicorp/boundary:0.12"
   }
-  
+
   network {
     name = "network.local"
   }
@@ -65,12 +65,12 @@ exec_remote "boundary_db_init" {
   args = [
     "/files/boundary_init.sh"
   ]
-  
+
   volume {
     source = "./files/config"
     destination = "/boundary/config"
   }
-  
+
   volume {
     source = data("temp")
     destination = "/files"
@@ -101,19 +101,19 @@ container "boundary" {
     local  = 9200
     remote = 9200
   }
-  
+
   port {
     host   = 9201
     local  = 9201
     remote = 9201
   }
-  
+
   port {
     host   = 9202
     local  = 9202
     remote = 9202
   }
-  
+
   port {
     host   = 9203
     local  = 9203
@@ -127,14 +127,14 @@ exec_remote "boundary_init" {
   image   {
     name = "shipyardrun/hashicorp-tools:v0.11.0"
   }
-  
+
   network {
     name = "network.local"
   }
 
   cmd = "/bin/bash"
   args = ["/files/setup_boundary.sh"]
-  
+
   volume {
     source      = "./files"
     destination = "/files"
