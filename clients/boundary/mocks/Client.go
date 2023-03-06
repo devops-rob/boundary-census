@@ -38,6 +38,20 @@ func (_m *Client) CreateTarget(name string, address string, port uint32, scopeId
 	return r0, r1
 }
 
+// DeleteTargetsWithPrefix provides a mock function with given fields: prefix, scopeId
+func (_m *Client) DeleteTargetsWithPrefix(prefix string, scopeId string) error {
+	ret := _m.Called(prefix, scopeId)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(string, string) error); ok {
+		r0 = rf(prefix, scopeId)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // FindProjectIDByName provides a mock function with given fields: org, name
 func (_m *Client) FindProjectIDByName(org string, name string) (string, error) {
 	ret := _m.Called(org, name)

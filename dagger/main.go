@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"path"
@@ -8,8 +9,12 @@ import (
 	"dagger.io/dagger"
 )
 
+var hasTTY = flag.Bool("tty", false, "does the output terminal have tty")
+
 // Dagger build pipeline
 func main() {
+	flag.Parse()
+
 	// remove the build folder if it exists
 	os.RemoveAll("./build")
 
@@ -17,7 +22,7 @@ func main() {
 	oses := []string{"linux", "darwin"}
 	arches := []string{"amd64", "arm64"}
 
-	builder, err := NewBuilder(oses, arches)
+	builder, err := NewBuilder(oses, arches, *hasTTY)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
@@ -38,25 +43,29 @@ func main() {
 	}
 }
 
+// run the application unit tests
 func test(builder *Builder, src *dagger.Directory) {
 	if builder.ctx.Err() != nil {
 		return
 	}
 
-	done := builder.LogStartSection("Running unit tests")
-
-	_, err := builder.DaggerClient.Container().
+	testContainer := builder.DaggerClient.Container().
 		From("golang:latest").
 		WithMountedDirectory("/src", src).
-		WithWorkdir("/src").
-		WithExec([]string{"go", "test", "-v", "./..."}).
+		WithWorkdir("/src")
+
+	testContainer = builder.WithModCache(testContainer).
+		WithExec([]string{"go", "test", "-v", "./..."})
+
+	done := builder.LogStartSectionWithContainer("Running unit tests", testContainer)
+	defer done()
+
+	_, err := testContainer.
 		ExitCode(builder.ctx)
 
 	if err != nil {
 		builder.LogError("unable to test application", err)
 	}
-
-	defer done()
 }
 
 // build the application for multiple architectures
@@ -74,20 +83,24 @@ func build(builder *Builder, src *dagger.Directory) {
 		WithWorkdir("/src").
 		WithEnvVariable("CGO_ENABLED", "0")
 
-	builder.WithArchitectures(func(goos, goarch string) error {
-		done := builder.LogSubSection(fmt.Sprintf("building %s %s", goos, goarch))
+	// add the mod cache
+	golang = builder.WithModCache(golang)
 
+	// build for all architectures
+	builder.WithArchitectures(func(goos, goarch string) error {
 		p := path.Join("build/", goos, goarch)
 		build := golang.WithEnvVariable("GOOS", goos).
 			WithEnvVariable("GOARCH", goarch).
 			WithExec([]string{"go", "build", "-o", path.Join(p, "census")})
+
+		done := builder.LogSubSectionWithContainer(fmt.Sprintf("building %s %s", goos, goarch), build)
 
 		_, err := build.Directory(p).Export(builder.ctx, p)
 		if err != nil {
 			builder.LogError("failed to build", err)
 		}
 
-		done(fmt.Sprintf("%s %s done", goos, goarch))
+		done(fmt.Sprintf("%s %s complete: ./build/%s/%s", goos, goarch, goos, goarch))
 
 		return nil
 	})
