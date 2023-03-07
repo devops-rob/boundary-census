@@ -1,0 +1,31 @@
+{
+    "id": 1,
+    "parentId": -1,
+    "label": "snippets",
+    "lastId": 5,
+    "children": [
+        {
+            "id": 2,
+            "parentId": 1,
+            "label": "terminal",
+            "folder": true,
+            "children": [
+                {
+                    "id": 5,
+                    "parentId": 2,
+                    "label": "Test Snippet",
+                    "value": "ls -las ${1:name} ${2:test}",
+                    "children": [],
+                    "resolveSyntax": true
+                }
+            ]
+        },
+        {
+            "id": 4,
+            "parentId": 1,
+            "label": "boundary",
+            "folder": true,
+            "children": []
+        }
+    ]
+}

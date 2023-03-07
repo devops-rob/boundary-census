@@ -244,3 +244,7 @@ func exportLocalImage(builder *Builder, container *dagger.Container, platform da
 	done(fmt.Sprintf("export container complete for architecture %s", platform))
 	return nil
 }
+
+// creates a github release for the built artifacts
+func createGitHubRelease(builder *Builder) {
+}
