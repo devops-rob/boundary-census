@@ -11,6 +11,7 @@ import (
 	"runtime"
 
 	"dagger.io/dagger"
+	"github.com/kr/pretty"
 )
 
 var hasTTY = flag.Bool("tty", false, "does the output terminal have tty")
@@ -41,6 +42,9 @@ func main() {
 		fmt.Printf("Error getting reference to host directory: %s", err)
 		os.Exit(1)
 	}
+
+	src = src.WithoutDirectory("shipyard")
+	pretty.Println(src)
 
 	test(builder, src)
 	build(builder, src)
