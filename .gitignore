@@ -2,4 +2,5 @@
 shipyard/files/auth_method_id
 shipyard/files/org_id
 shipyard/files/project_id
+shipyard/files/global_auth_method_id
 build/

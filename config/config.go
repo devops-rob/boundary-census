@@ -16,6 +16,21 @@ type Config struct {
 	Boundary *Boundary `hcl:"boundary,block"`
 }
 
+// Process is called by hclconfig when it finds a Config resource
+// you can do validation and cleanup here
+func (c *Config) Process() error {
+	c.Boundary.DefaultIngressFilter = strings.TrimSpace(c.Boundary.DefaultIngressFilter)
+	c.Boundary.DefaultEgressFilter = strings.TrimSpace(c.Boundary.DefaultEgressFilter)
+
+	if ! c.Boundary.Enterprise {
+	if c.Boundary.DefaultIngressFilter!= "" {
+		return fmt.Errorf("ingress filters are not supported on oss boundary")
+	}
+}
+
+	return nil
+}
+
 // Nomad is configuration specific to the Nomad scheduler
 type Nomad struct {
 	Address   string `hcl:"address,optional"`
@@ -26,6 +41,7 @@ type Nomad struct {
 
 // / Boundary is configuration specific to Boundary
 type Boundary struct {
+	Enterprise     bool     `hcl:"enterprise,optional"`
 	OrgID          string   `hcl:"org_id"`
 	DefaultProject string   `hcl:"default_project,optional"`
 	DefaultGroups  []string `hcl:"default_groups,optional"`
@@ -34,6 +50,9 @@ type Boundary struct {
 	Username     string `hcl:"username"`
 	Password     string `hcl:"password"`
 	Address      string `hcl:"address"`
+
+	DefaultIngressFilter string `hcl:"default_ingress_filter,optional"`
+	DefaultEgressFilter  string `hcl:"default_egress_filter,optional"`
 }
 
 // Parse the given HCL config file and return the Config

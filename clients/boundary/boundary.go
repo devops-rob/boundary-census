@@ -18,7 +18,7 @@ import (
 //go:generate mockery --name Client
 type Client interface {
 	// CreateTarget creates a new Boundary target with the given options
-	CreateTarget(name string, address string, port uint32, scopeId string) (*targets.Target, error)
+	CreateTarget(name string, address string, port uint32, scopeId, ingressFilter, egressFilter string) (*targets.Target, error)
 
 	// FindProjectIDByName attempts to find a project in an organization
 	// project can be referenced by either the name or the id of the project
@@ -41,9 +41,10 @@ type ClientImpl struct {
 	*api.Client
 	organization string
 	scope        string
+	isEnterprise bool
 }
 
-func New(address string, organization string, scope string, authmethod string, credentials map[string]interface{}) (Client, error) {
+func New(address string, organization string, scope string, authmethod string, credentials map[string]interface{}, isEnterprise bool) (Client, error) {
 	config := &api.Config{
 		Addr: address,
 	}
@@ -61,7 +62,7 @@ func New(address string, organization string, scope string, authmethod string, c
 
 	client.SetToken(fmt.Sprint(authenticationResult.Attributes["token"]))
 
-	return &ClientImpl{client, organization, scope}, nil
+	return &ClientImpl{client, organization, scope, isEnterprise}, nil
 }
 
 func (c *ClientImpl) FindProjectIDByName(org, name string) (string, error) {
@@ -265,7 +266,7 @@ func (c *ClientImpl) GetTargetByName(name string, scopeId string) (*targets.Targ
 	return nil, TargetNotFoundError
 }
 
-func (c *ClientImpl) CreateTarget(name string, address string, port uint32, scopeId string) (*targets.Target, error) {
+func (c *ClientImpl) CreateTarget(name string, address string, port uint32, scopeId, ingressFilter, egressFilter string) (*targets.Target, error) {
 	// first check if the target exists
 	t, err := c.GetTargetByName(name, scopeId)
 	if err != nil && err != TargetNotFoundError {
@@ -278,6 +279,21 @@ func (c *ClientImpl) CreateTarget(name string, address string, port uint32, scop
 	opts = append(opts, targets.WithTcpTargetDefaultPort(port))
 	opts = append(opts, targets.WithAddress(address))
 	opts = append(opts, targets.WithName(name))
+
+	if c.isEnterprise {
+		if ingressFilter != "" {
+			opts = append(opts, targets.WithIngressWorkerFilter(ingressFilter))
+		}
+
+		if egressFilter != "" {
+			opts = append(opts, targets.WithEgressWorkerFilter(egressFilter))
+		}
+	} else {
+		// if oss
+		if egressFilter != "" {
+			opts = append(opts, targets.WithEgressWorkerFilter(egressFilter))
+		}
+	}
 
 	// create
 	if err == TargetNotFoundError {

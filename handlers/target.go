@@ -28,7 +28,7 @@ func NewTarget(l hclog.Logger, b boundary.Client) *Target {
 }
 
 // Create new targets from the given ServiceInstance
-func (t *Target) Create(s *ServiceInstance, name, scope, project string) ([]string, error) {
+func (t *Target) Create(s *ServiceInstance, name, scope, project, ingressFilter, egressFilter string) ([]string, error) {
 	// attempt to find the project
 	project_id, err := t.BoundaryClient.FindProjectIDByName(scope, project)
 	if err != nil {
@@ -39,7 +39,7 @@ func (t *Target) Create(s *ServiceInstance, name, scope, project string) ([]stri
 	// create a target for every port
 	for _, p := range s.Ports {
 		targetName := fmt.Sprintf("%s_%d", name, p)
-		_, err = t.BoundaryClient.CreateTarget(targetName, s.Location, p, project_id)
+		_, err = t.BoundaryClient.CreateTarget(targetName, s.Location, p, project_id, ingressFilter, egressFilter)
 		if err != nil {
 			t.Log.Info("unable to create target", "scope", scope, "project", project, "error", err)
 			return nil, fmt.Errorf("unable to create target: %s", err)

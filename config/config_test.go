@@ -30,6 +30,7 @@ func TestParsesConfig(t *testing.T) {
 	require.Equal(t, "myregion", c.Nomad.Region)
 	require.Equal(t, "mynamespace", c.Nomad.Namespace)
 
+	require.Equal(t, true, c.Boundary.Enterprise)
 	require.Equal(t, "nic", c.Boundary.Username)
 	require.Equal(t, "password", c.Boundary.Password)
 	require.Equal(t, "http://myaddress.com", c.Boundary.Address)
@@ -37,6 +38,10 @@ func TestParsesConfig(t *testing.T) {
 	require.Equal(t, "123", c.Boundary.AuthMethodID)
 	require.Equal(t, "hashicorp", c.Boundary.DefaultProject)
 	require.Equal(t, []string{"developers"}, c.Boundary.DefaultGroups)
+
+	// ensure whitespace is trimmed from filters
+	require.Equal(t, `"name" == "mine"`, c.Boundary.DefaultIngressFilter)
+	require.Equal(t, `"name" == "other"`, c.Boundary.DefaultEgressFilter)
 }
 
 var mockConfig = `
@@ -49,6 +54,7 @@ config "controller" {
   }
 
   boundary {
+		enterprise = "true"
     username = "nic"
     password = "password"
     address = "http://myaddress.com"
@@ -57,6 +63,14 @@ config "controller" {
     auth_method_id = "123"
     default_project = "hashicorp"
     default_groups = ["developers"]
+
+		default_ingress_filter = <<EOF
+		"name" == "mine"
+		EOF
+		
+		default_egress_filter = <<EOF
+		"name" == "other"
+		EOF
   }
 }
 `

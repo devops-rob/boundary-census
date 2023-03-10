@@ -51,6 +51,7 @@ func main() {
 			"login_name": cfg.Boundary.Username,
 			"password":   cfg.Boundary.Password,
 		},
+		cfg.Boundary.Enterprise,
 	)
 	if err != nil {
 		logger.Error("Unable to create client", "error", err)
@@ -100,7 +101,15 @@ func main() {
 						}
 
 						// call create
-						ids, err := targetHandler.Create(si, alloc.Name, cfg.Boundary.OrgID, cfg.Boundary.DefaultProject)
+						ids, err := targetHandler.Create(
+							si,
+							alloc.Name,
+							cfg.Boundary.OrgID,
+							cfg.Boundary.DefaultProject,
+							cfg.Boundary.DefaultIngressFilter,
+							cfg.Boundary.DefaultEgressFilter,
+						)
+
 						if err != nil {
 							logger.Error("Unable to create tasks", "error", err)
 							break
