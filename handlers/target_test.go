@@ -9,6 +9,7 @@ import (
 
 	"github.com/hashicorp/boundary/api/targets"
 	"github.com/hashicorp/go-hclog"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -18,8 +19,8 @@ func setupTarget(t *testing.T) (*Target, *mocks.Client) {
 
 	// setup mocks for happy path
 	m.On("FindProjectIDByName", "myscope", "myproject").Return("123abc", nil)
-	m.On("CreateTarget", "mytarget_9090", "127.0.0.1", uint32(9090), "123abc").Return(&targets.Target{Id: "target1"}, nil)
-	m.On("CreateTarget", "mytarget_9091", "127.0.0.1", uint32(9091), "123abc").Return(&targets.Target{Id: "target2"}, nil)
+	m.On("CreateTarget", "mytarget_9090", "127.0.0.1", uint32(9090), "123abc",mock.Anything,mock.Anything).Return(&targets.Target{Id: "target1"}, nil)
+	m.On("CreateTarget", "mytarget_9091", "127.0.0.1", uint32(9091), "123abc",mock.Anything,mock.Anything).Return(&targets.Target{Id: "target2"}, nil)
 
 	return NewTarget(l, m), m
 }
@@ -34,7 +35,7 @@ func TestCreateReturnsErrorWhenProjectDoesNotExist(t *testing.T) {
 
 	mc.On("FindProjectIDByName", "broken", "myproject").Return("", boundary.ProjectNotFoundError)
 
-	_, err := tgt.Create(si, "mytarget", "broken", "myproject")
+	_, err := tgt.Create(si, "mytarget", "broken", "myproject", "", "")
 	require.Error(t, err)
 }
 
@@ -46,9 +47,9 @@ func TestCreateReturnsErrorWhenTargetCreateFails(t *testing.T) {
 		Ports:    []uint32{9002, 9091},
 	}
 
-	m.On("CreateTarget", "mytarget_9002", "127.0.0.1", uint32(9002), "123abc").Return(nil, fmt.Errorf("boom"))
+	m.On("CreateTarget", "mytarget_9002", "127.0.0.1", uint32(9002), "123abc", mock.Anything, mock.Anything).Return(nil, fmt.Errorf("boom"))
 
-	_, err := tgt.Create(si, "mytarget", "myscope", "myproject")
+	_, err := tgt.Create(si, "mytarget", "myscope", "myproject", "", "")
 	require.Error(t, err)
 }
 
@@ -60,9 +61,9 @@ func TestCreatesTargets(t *testing.T) {
 		Ports:    []uint32{9090, 9091},
 	}
 
-	_, err := tgt.Create(si, "mytarget", "myscope", "myproject")
+	_, err := tgt.Create(si, "mytarget", "myscope", "myproject", "", "")
 	require.NoError(t, err)
 
-	m.AssertCalled(t, "CreateTarget", "mytarget_9090", "127.0.0.1", uint32(9090), "123abc")
-	m.AssertCalled(t, "CreateTarget", "mytarget_9091", "127.0.0.1", uint32(9091), "123abc")
+	m.AssertCalled(t, "CreateTarget", "mytarget_9090", "127.0.0.1", uint32(9090), "123abc", mock.Anything,mock.Anything)
+	m.AssertCalled(t, "CreateTarget", "mytarget_9091", "127.0.0.1", uint32(9091), "123abc", mock.Anything,mock.Anything)
 }
